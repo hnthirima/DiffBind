@@ -4,71 +4,91 @@ biocLite("DiffBind")
 library(DiffBind)
 
 #1 Setting the path
-path = setwd('/home/hthirima/hthirima_fast/091117_H3K4me/DiffBind/')
+path = setwd('/home/hthirima/hthirima_fast/2018_CR/030918_DiffBind_H3K27ac/DiffBind3/')
 
 #2 Reading sample sheet to a dataframe
-samples <- read.csv("H3K4me1and2_WTvsNL.csv")
+samples <- read.csv("SampleSheet_DiffBind_030918_H3K27ac_MACS2_nrrwpeak.csv")
 names(samples)
 samples
 
 #3 Peaksets are read directly using the samplesheet
-H3K4me1and2_WTvsNL <- dba(sampleSheet="H3K4me1and2_WTvsNL.csv")
+H3K27ac_030918 <- dba(sampleSheet="SampleSheet_DiffBind_030918_H3K27ac_MACS2_nrrwpeak.csv")
 
-#4 Tells you how intervals identified in each peakset
-#In the first line: total number of unique peaks after merging overlapping ones
-#Dimensions of binding matrix (#of samples vs sites overlap in at least 2 samples)
-H3K4me1and2_WTvsNL
+#4 Tells you how many peaks are identified in each peakset
+#In the first line: total number of unique peaks after merging overlapping ones (in paranthesis)
+#Dimenstions of binding matrix (#of samples vs sites overlapped in at least 2 samples)
+H3K27ac_030918
 
 #5 Correlation heatmap using occupancy (peak caller score) data
-plot(H3K4me1and2_WTvsNL)
+plot(H3K27ac_030918)
 
 #6 Counting reads
-H3K4me1and2_WTvsNL <- dba.count(H3K4me1and2_WTvsNL)
+H3K27ac_030918.count <- dba.count(H3K27ac_030918)
 
-#7 The number of consensus peaks set, FRiP
-H3K4me1and2_WTvsNL
+#7 The number of consensus peaks is shown in the first line. 
+#FRiP (Fraction of Reads In Peaks): indicate which samples show more enrichemnt overall
+H3K27ac_030918.count
 
 #8 Correlation heatmap using affinity (read count) data
-plot(H3K4me1and2_WTvsNL)
+plot(H3K27ac_030918.count)
 
-#9 Establishing contrast. Input which samples fall in which groups
-H3K4me1and2_WTvsNL <- dba.contrast(H3K4me1and2_WTvsNL, categories = DBA_CONDITION, minMembers = 2)
+#Don't do step 9 and 10 if you want all pairwise constrasts to be considered.
+
+#9 Establishing contrast. We tell DiffBind which samples fall in which groups
+H3K27ac_030918_contrast <- dba.contrast(H3K27ac_030918.count, categories = DBA_CONDITION)
 
 #10 Perfroming differential analysis. 
-#The main differential analysis function is invoked as follows:
-H3K4me1and2_WTvsNL <- dba.analyze(H3K4me1and2_WTvsNL)
-H3K4me1and2_WTvsNL
+#The main differential analysis function is invoked as follows. 
+#This will run an DESeq2 analysis using the default matrix (FDR <= 0.05)
+H3K27ac_030918_analyze <- dba.analyze(H3K27ac_030918_contrast)
+H3K27ac_030918_analyze
+
+# Alternative to step 9 and 10
+H3K27ac_030918_analyze <- dba.analyze(H3K27ac_030918.count)
 
 #11 Correlation heatmap based on analysis
-plot(H3K4me1and2_WTvsNL, contrast=1)
+plot(H3K27ac_030918_analyze)
 
 #12 Retreiving differentially bound sites
-H3K4me1and2_WTvsNL.DB <- dba.report(H3K4me1and2_WTvsNL)
+H3K27ac_030918.DB <- dba.report(H3K27ac_030918_analyze)
 
-H3K4me1and2_WTvsNL.DB
+#Extract diff bound sites for each contrast
+WT.R.DB <- dba.report(H3K27ac_030918_analyze, contrast = 1)
+WT.NL.DB <- dba.report(H3K27ac_030918_analyze, contrast = 2)
+R.NL.DB <- dba.report(H3K27ac_030918_analyze, contrast = 3)
 
-write.csv(H3K4me1and2_WTvsNL.DB, file ="DiffBoundSites_me1.csv")
+WT.NL.DB
+WT_NL_th1.DB = dba.report(WT_NL.DB, th=9.9E-05)
+
+WT_NL.DB <- dba.report(WT_NL.DB)
+WT_NL.DB.Gain <- WT_NL.DB(WT_NL.DB$Fold>0, th=9.9E-05)
+
+WT_NL_th1.DB.Gain <- dba.report(H3K27ac_030918_analyze, contrast = 2, th = 9.9E-05, bGain = TRUE)
+
+write.csv(H3K27ac_030918.DB, file ="DiffBoundSites_H3K27ac_030918_2.csv")
+write.csv(WT.NL.DB, file = "DiffBoundSites_H3K27ac_WTNL_030918_DB3.csv")
+
+write.csv(WT_NL_th1.DB.Gain, file = "DB2_H3K27ac_WTNL_th1_Gain.csv")
 
 #13 Plotting
 #MA plot: use data(XXXXX_analysis)
-dba.plotMA(H3K4me1and2_WTvsNL, contrast = 1)
-
-dba.plotMA(H3K4me1and2_WTvsNL, bXY=TRUE)
+dba.plotMA(H3K27ac_030918_analyze, contrast = 3)
+dba.plotMA(H3K27ac_030918_analyze, bXY=TRUE)
 
 #14 PCA plot
-dba.plotPCA(H3K4me1and2_WTvsNL, contrast = 1, label=DBA_FACTOR)
+dba.plotPCA(H3K27ac_030918.count,DBA_TISSUE,label=DBA_CONDITION)
 
-dba.plotPCA(H3K4me1and2_WTvsNL, attributes=c(DBA_CONDITION), label= DBA_FACTOR)
+dba.plotPCA(H3K27ac_030918_analyze, label=DBA_TISSUE)
+
+dba.plotPCA(H3K27ac_030918_analyze, attributes=c(DBA_TISSUE,DBA_CONDITION), label= DBA_REPLICATE)
 
 #15 Box plot
-sum(H3K4me1and2_WTvsNL.DB$Fold<0)
-sum(H3K4me1and2_WTvsNL.DB$Fold>0)
+sum(H3K27ac_030918.DB$Fold<0)
+sum(H3K27ac_030918.DB$Fold>0)
 
-pvals <- dba.plotBox(H3K4me1and2_WTvsNL)
+pvals <- dba.plotBox(H3K27ac_030918.DB)
 pvals
 
 #16 Heatmaps
-corvals <- dba.plotHeatmap(H3K4me1and2_WTvsNL, contrast=1, correlations = FALSE, scale="row")
-
-
+corvals <- dba.plotHeatmap(H3K27ac_030918_analyze, correlations = FALSE)
 
